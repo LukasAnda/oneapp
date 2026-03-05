@@ -16,16 +16,20 @@ class GitHubReleasesApi(
     private val repo: String,
     private val token: String,
 ) {
+    /** Builds a request, only adding Authorization when a token is configured.
+     *  Public repos work without auth; sending a blank Bearer token causes 401. */
+    private fun request(url: String, accept: String = "application/vnd.github.v3+json") =
+        Request.Builder().url(url)
+            .apply { if (token.isNotEmpty()) header("Authorization", "Bearer $token") }
+            .header("Accept", accept)
+            .build()
+
     /**
      * Fetches all assets from the release tagged "stable".
      * Returns empty list on any error — UpdateChecker handles retry on next launch.
      */
     fun fetchLatestStableAssets(): List<ReleaseAsset> = runCatching {
-        val request = Request.Builder()
-            .url("${baseUrl}repos/$repo/releases?per_page=10")
-            .header("Authorization", "Bearer $token")
-            .header("Accept", "application/vnd.github.v3+json")
-            .build()
+        val request = request("${baseUrl}repos/$repo/releases?per_page=10")
 
         val body = client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@runCatching emptyList()
@@ -55,11 +59,10 @@ class GitHubReleasesApi(
      * Returns null on any error.
      */
     fun fetchManifest(): String? = runCatching {
-        val request = Request.Builder()
-            .url("${baseUrl}repos/$repo/contents/MANIFEST.md")
-            .header("Authorization", "Bearer $token")
-            .header("Accept", "application/vnd.github.v3.raw")
-            .build()
+        val request = request(
+            "${baseUrl}repos/$repo/contents/MANIFEST.md",
+            accept = "application/vnd.github.v3.raw",
+        )
 
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) null
@@ -73,11 +76,7 @@ class GitHubReleasesApi(
      * The downloadUrl points to the APK asset in the same release.
      */
     fun fetchCoreVersion(): Pair<Int, String>? = runCatching {
-        val request = Request.Builder()
-            .url("${baseUrl}repos/$repo/releases?per_page=10")
-            .header("Authorization", "Bearer $token")
-            .header("Accept", "application/vnd.github.v3+json")
-            .build()
+        val request = request("${baseUrl}repos/$repo/releases?per_page=10")
 
         val body = client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return null
@@ -98,11 +97,8 @@ class GitHubReleasesApi(
                 val name = asset.getString("name")
                 when {
                     name == "core-version.json" -> {
-                        // Fetch the JSON content
-                        val versionRequest = Request.Builder()
-                            .url(asset.getString("browser_download_url"))
-                            .header("Authorization", "Bearer $token")
-                            .build()
+                        // Fetch the JSON content (browser_download_url is public, no auth needed)
+                        val versionRequest = request(asset.getString("browser_download_url"))
                         val versionBody = client.newCall(versionRequest).execute().use { r ->
                             if (r.isSuccessful) r.body?.string() else null
                         }
