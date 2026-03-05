@@ -41,6 +41,10 @@ class ApkInstaller(
             "${context.packageName}.fileprovider",
             apkFile,
         )
+        // ACTION_INSTALL_PACKAGE is deprecated at API 29 in favour of PackageInstaller, but
+        // PackageInstaller requires far more boilerplate for the same user-facing install dialog.
+        // For a sideload-oriented app this remains the correct choice.
+        @Suppress("DEPRECATION")
         val intent = Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
             setDataAndType(uri, "application/vnd.android.package-archive")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
