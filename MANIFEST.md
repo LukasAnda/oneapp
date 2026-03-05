@@ -1,12 +1,13 @@
 # App Manifest
 core_version: 1
 plugin_api_version: 1
-last_evolved: never
+last_evolved: 2026-03-05T20:36:56.939194+00:00
 github_repo: REPLACE_WITH_YOUR_REPO
 
 ## Installed Plugins
 | id | version | permissions | entry_class | description |
 |----|---------|-------------|-------------|-------------|
+| dev.oneapp.goodmorning | 1 | POST_NOTIFICATIONS, USE_EXACT_ALARM, RECEIVE_BOOT_COMPLETED | dev.oneapp.plugins.GoodMorningPlugin | Daily 8 AM Good Morning notification with home card toggle |
 | dev.oneapp.hello | 1 | NONE | dev.oneapp.plugins.HelloPlugin | Smoke test - greeting screen |
 
 ## External Plugins

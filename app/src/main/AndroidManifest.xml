@@ -63,4 +63,5 @@
 
     </application>
 
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 </manifest>
