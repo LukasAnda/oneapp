@@ -1,0 +1,57 @@
+name: Evolve — request a new plugin
+description: Ask the AI agent to build a new feature or plugin for your app.
+labels: ["evolve"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The agent will read this issue, write a Kotlin plugin, compile it to DEX, and publish it.
+        Restart the app after it comments to pick up the new plugin.
+
+  - type: input
+    id: name
+    attributes:
+      label: Plugin name
+      description: Short human-readable name shown on the home card.
+      placeholder: "Good Morning Alarm"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What should it do?
+      description: Describe the feature in plain language. Be as specific as possible.
+      placeholder: |
+        Every day at 8 AM local time, send a notification saying "Good morning! Have a great day."
+        Show a home card with the next scheduled alarm time and a way to toggle it on/off.
+    validations:
+      required: true
+
+  - type: textarea
+    id: ui
+    attributes:
+      label: UI / home card (optional)
+      description: Describe any home card or full-screen view you want.
+      placeholder: |
+        Home card: shows next alarm time, toggle switch to enable/disable.
+        No full-screen view needed.
+
+  - type: textarea
+    id: permissions
+    attributes:
+      label: Permissions needed (optional)
+      description: List any Android permissions the plugin requires. The agent will add missing ones to the manifest automatically.
+      placeholder: |
+        - POST_NOTIFICATIONS
+        - SCHEDULE_EXACT_ALARM or USE_EXACT_ALARM
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Extra notes / constraints (optional)
+      description: Anything else the agent should know — edge cases, styling, behaviour on reboot, etc.
+      placeholder: |
+        - Should reschedule the alarm after device reboot (RECEIVE_BOOT_COMPLETED).
+        - Use NotificationChannel "daily_greeting" with importance HIGH.
+</content>
