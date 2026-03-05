@@ -10,6 +10,7 @@ PLUGIN_SRC="${1:?Usage: compile-plugin.sh <source.kt> <plugin-id>}"
 PLUGIN_ID="${2:?Usage: compile-plugin.sh <source.kt> <plugin-id>}"
 STUBS_JAR="build-stubs/build/libs/build-stubs.jar"
 CLASSPATH_FILE="app/build/plugin-classpath.txt"
+COMPILER_PLUGINS_FILE="app/build/kotlin-compiler-plugins.txt"
 OUT_DIR="out"
 
 mkdir -p "$OUT_DIR"
@@ -48,9 +49,21 @@ for entry in "${ENTRIES[@]}"; do
 done
 COMPILE_CP="${COMPILE_CP#:}"  # strip leading colon
 
+# Build -Xplugin args for Kotlin compiler plugins (Compose compiler, etc.)
+# Without the Compose compiler plugin, inline @Composable functions fail to compile.
+PLUGIN_ARGS=""
+if [ -f "$COMPILER_PLUGINS_FILE" ] && [ -s "$COMPILER_PLUGINS_FILE" ]; then
+    IFS=':' read -ra PLUGIN_JARS <<< "$(cat "$COMPILER_PLUGINS_FILE")"
+    for jar in "${PLUGIN_JARS[@]}"; do
+        [ -f "$jar" ] && PLUGIN_ARGS="$PLUGIN_ARGS -Xplugin=$jar"
+    done
+fi
+
 # Step 1: Kotlin source → JAR
+# shellcheck disable=SC2086
 kotlinc "$PLUGIN_SRC" \
     -cp "$COMPILE_CP" \
+    $PLUGIN_ARGS \
     -d "$OUT_DIR/${PLUGIN_ID}.jar"
 
 # Step 2: JAR → DEX using d8

@@ -75,16 +75,28 @@ kotlin {
     jvmToolchain(17)
 }
 
-// Writes the full debug compile classpath to a file so the plugin compiler can use it.
+// Writes the full debug compile classpath and Kotlin compiler plugin paths to files
+// so the standalone kotlinc in the evolve workflow can compile plugins correctly.
 tasks.register("writePluginClasspath") {
     doLast {
+        val outDir = layout.buildDirectory.get().asFile.also { it.mkdirs() }
+
+        // Maven deps classpath (Compose, OkHttp, etc.)
         val cp = configurations.getByName("debugCompileClasspath")
             .resolvedConfiguration.resolvedArtifacts
             .joinToString(File.pathSeparator) { it.file.absolutePath }
-        layout.buildDirectory.file("plugin-classpath.txt").get().asFile.also {
-            it.parentFile.mkdirs()
-            it.writeText(cp)
-        }
+        File(outDir, "plugin-classpath.txt").writeText(cp)
+
+        // Kotlin compiler plugins (Compose compiler, etc.) — needed for @Composable inline functions
+        val pluginCp = configurations
+            .filter { cfg -> cfg.name.startsWith("kotlinCompilerPluginClasspath") && cfg.isCanBeResolved }
+            .flatMap { cfg ->
+                runCatching { cfg.resolvedConfiguration.resolvedArtifacts.toList() }.getOrElse { emptyList() }
+            }
+            .map { it.file.absolutePath }
+            .distinct()
+            .joinToString(File.pathSeparator)
+        File(outDir, "kotlin-compiler-plugins.txt").writeText(pluginCp)
     }
 }
 

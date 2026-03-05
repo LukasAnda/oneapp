@@ -17,7 +17,7 @@ class HelloPlugin : Plugin {
 
     override fun register(host: PluginHost) {
         host.addHomeCard(
-            label = "Hello",
+            config = """{"label":"Hello"}""",
             icon = Icons.Default.WavingHand,
             onClick = {},
         )

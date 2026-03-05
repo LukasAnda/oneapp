@@ -44,7 +44,10 @@ class PluginHostImpl(
     private val trust: PluginTrust = PluginTrust.OWN,
 ) : PluginHost {
 
-    override fun addHomeCard(label: String, icon: ImageVector, onClick: () -> Unit, subtitle: String) {
+    override fun addHomeCard(config: String, icon: ImageVector, onClick: () -> Unit) {
+        val json = org.json.JSONObject(config)
+        val label = json.getString("label")
+        val subtitle = json.optString("subtitle", "")
         val route = "plugin_${label.lowercase().replace(" ", "_")}"
         PluginRegistry.addCard(
             HomeCard(pluginId = pluginId, label = label, subtitle = subtitle, icon = icon, route = route, onClick = onClick)

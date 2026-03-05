@@ -18,7 +18,13 @@ import kotlinx.coroutines.CoroutineScope
  */
 interface PluginHost {
 
-    fun addHomeCard(label: String, icon: ImageVector, onClick: () -> Unit, subtitle: String = "")
+    /**
+     * Adds a tappable card to the home screen.
+     * @param config JSON string with card properties. Required: "label". Optional: "subtitle".
+     *               Example: {"label":"Notes","subtitle":"Your private notes"}
+     *               Using JSON lets new properties be added without breaking existing plugins.
+     */
+    fun addHomeCard(config: String, icon: ImageVector, onClick: () -> Unit)
     fun addFullScreen(route: String, content: @Composable () -> Unit)
 
     fun requestPermission(permission: String, onResult: (Boolean) -> Unit)

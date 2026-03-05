@@ -14,7 +14,7 @@ github_repo: REPLACE_WITH_YOUR_REPO
 |----|-------------|---------|----------|
 
 ## PluginHost API Surface (v1)
-- addHomeCard(label, icon, onClick, subtitle = "")  // subtitle is optional
+- addHomeCard(config, icon, onClick)  // config is JSON: {"label":"...", "subtitle":"..."} — subtitle optional
 - addFullScreen(route, content)
 - requestPermission(permission, onResult)
 - httpGet(url, headers)

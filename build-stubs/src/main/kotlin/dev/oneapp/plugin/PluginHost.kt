@@ -8,62 +8,39 @@ import kotlinx.coroutines.CoroutineScope
 
 /**
  * The API surface the core exposes to all plugins.
- * Plugins may ONLY interact with Android via this interface — never directly.
+ * Plugins may ONLY interact with Android via this interface.
+ *
+ * Capabilities are enforced per trust level by PluginHostImpl:
+ * - EXTERNAL plugins: no dangerous permissions, no POST, no custom headers, own storage only
+ * - OWN/TRUSTED plugins: full access
  *
  * Plugin API version: 1
  */
 interface PluginHost {
 
-    // ── UI Registration ──────────────────────────────────────────────────────
-
     /**
      * Adds a tappable card to the home screen.
-     * @param label Short display name shown on the card
-     * @param icon  Material icon vector
-     * @param onClick Invoked when the user taps the card
+     * @param config JSON string with card properties. Required: "label". Optional: "subtitle".
+     *               Example: {"label":"Notes","subtitle":"Your private notes"}
+     *               Using JSON lets new properties be added without breaking existing plugins.
      */
-    fun addHomeCard(label: String, icon: ImageVector, onClick: () -> Unit, subtitle: String = "")
-
-    /**
-     * Registers a full-screen Compose destination reachable from a home card.
-     * @param route Unique route string for navigation e.g. "notes_main"
-     * @param content Composable lambda that renders the screen
-     */
+    fun addHomeCard(config: String, icon: ImageVector, onClick: () -> Unit)
     fun addFullScreen(route: String, content: @Composable () -> Unit)
 
-    // ── Permissions ──────────────────────────────────────────────────────────
-
-    /**
-     * Requests a dangerous Android permission at runtime.
-     * @param permission e.g. android.Manifest.permission.CAMERA
-     * @param onResult   Called with true if granted, false if denied
-     */
     fun requestPermission(permission: String, onResult: (Boolean) -> Unit)
 
-    // ── Networking ───────────────────────────────────────────────────────────
-
-    /** Synchronous GET. Must be called from a background coroutine. */
+    /** GET request. EXTERNAL plugins: custom headers are stripped. */
     fun httpGet(url: String, headers: Map<String, String> = emptyMap()): String
 
-    /** Synchronous POST with string body. Must be called from a background coroutine. */
+    /** POST request. NOT available to EXTERNAL plugins — throws SecurityException. */
     fun httpPost(url: String, body: String, headers: Map<String, String> = emptyMap()): String
 
-    // ── Storage (sandboxed per plugin) ───────────────────────────────────────
-
-    /** Returns a SharedPreferences scoped to this plugin. No argument — isolation is automatic. */
+    /** Returns SharedPreferences scoped to this plugin only. No pluginId argument — isolation enforced. */
     fun getPrefs(): SharedPreferences
 
-    /** Reads a file from the plugin's private directory. Returns null if not found. */
     fun readFile(name: String): ByteArray?
-
-    /** Writes a file to the plugin's private directory. */
     fun writeFile(name: String, data: ByteArray)
 
-    // ── Context ──────────────────────────────────────────────────────────────
-
-    /** Application context. Read-only — plugins must not start Activities directly. */
     val context: Context
-
-    /** Coroutine scope tied to the app's lifecycle. Use for all async plugin work. */
     val coroutineScope: CoroutineScope
 }
