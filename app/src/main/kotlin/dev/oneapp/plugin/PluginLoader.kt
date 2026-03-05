@@ -1,19 +1,20 @@
 package dev.oneapp.plugin
 
 import android.util.Log
-import dalvik.system.DexClassLoader
+import dalvik.system.InMemoryDexClassLoader
 import dev.oneapp.core.LocalPluginRegistry
 import java.io.File
+import java.nio.ByteBuffer
 
 private const val TAG = "PluginLoader"
 
 class PluginLoader(
     private val pluginsDir: File,
-    private val codeCacheDir: File,
 ) {
     /**
-     * Loads all DEX plugins from codeCacheDir.
-     * [hostFactory] receives (pluginId, trust) and returns a scoped PluginHostImpl.
+     * Loads all DEX plugins from pluginsDir using InMemoryDexClassLoader.
+     * Loading from memory bypasses Android 10+ W^X restriction that blocks
+     * DexClassLoader from writable directories.
      * Skips plugins that fail to load — never crashes the core.
      */
     fun loadAll(
@@ -21,7 +22,7 @@ class PluginLoader(
         hostFactory: (pluginId: String, trust: PluginTrust) -> PluginHost,
         registry: LocalPluginRegistry? = null,
     ): List<Plugin> {
-        val dexFiles = codeCacheDir.listFiles { f -> f.name.endsWith(".dex") } ?: return emptyList()
+        val dexFiles = pluginsDir.listFiles { f -> f.name.endsWith(".dex") } ?: return emptyList()
         return dexFiles.mapNotNull { dexFile ->
             runCatching { loadOne(dexFile, manifestContent, hostFactory, registry) }
                 .getOrElse { e ->
@@ -45,10 +46,10 @@ class PluginLoader(
             ?: entryClassNameFromManifest(manifestContent, pluginId)
             ?: error("No entry_class found for plugin $pluginId")
 
-        val classLoader = DexClassLoader(
-            dexFile.absolutePath,
-            codeCacheDir.absolutePath,
-            null,
+        // InMemoryDexClassLoader avoids W^X: Android 10+ forbids loading DEX
+        // from writable paths, but loading from a ByteBuffer has no such restriction.
+        val classLoader = InMemoryDexClassLoader(
+            ByteBuffer.wrap(dexFile.readBytes()),
             Plugin::class.java.classLoader,
         )
 

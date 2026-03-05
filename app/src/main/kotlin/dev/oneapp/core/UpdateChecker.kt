@@ -16,7 +16,6 @@ data class PendingApkUpdate(val downloadUrl: String, val filename: String)
 class UpdateChecker(
     private val api: GitHubReleasesApi,
     private val pluginsDir: File,
-    private val codeCacheDir: File,
     private val client: OkHttpClient = OkHttpClient(),
     private val installedVersionCode: Int = 0,
     private val registry: LocalPluginRegistry? = null,
@@ -28,7 +27,6 @@ class UpdateChecker(
      */
     suspend fun checkAndDownload(manifestContent: String = ""): List<String> = withContext(Dispatchers.IO) {
         pluginsDir.mkdirs()
-        codeCacheDir.mkdirs()
 
         val assets = api.fetchLatestStableAssets()
         val dexAssets = filterDexAssets(assets)
@@ -36,7 +34,6 @@ class UpdateChecker(
         dexAssets.mapNotNull { asset ->
             runCatching {
                 val destFile = File(pluginsDir, asset.name)
-                val cachedFile = File(codeCacheDir, asset.name)
                 val needsDownload = !destFile.exists() || destFile.length() != asset.size
 
                 if (needsDownload) {
@@ -44,11 +41,6 @@ class UpdateChecker(
                     Log.i(TAG, "Downloaded ${asset.name}")
                 } else {
                     Log.d(TAG, "Skip download ${asset.name} — already up to date")
-                }
-
-                // Always copy to code cache — it may have been evicted by the OS
-                if (needsDownload || !cachedFile.exists()) {
-                    destFile.copyTo(cachedFile, overwrite = true)
                 }
 
                 val pluginId = pluginIdFromFilename(asset.name)

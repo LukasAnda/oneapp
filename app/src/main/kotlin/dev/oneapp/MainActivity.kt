@@ -213,7 +213,6 @@ class MainActivity : ComponentActivity() {
         runCatching {
             // Download DEX to plugins dir
             val pluginsDir = File(filesDir, "plugins").also { it.mkdirs() }
-            val codeCacheDir = File(codeCacheDir, "plugins").also { it.mkdirs() }
             val dexFilename = "plugin-$pluginId.dex"
             val destFile = File(pluginsDir, dexFilename)
 
@@ -230,8 +229,6 @@ class MainActivity : ComponentActivity() {
                 snackbarHostState.showSnackbar("Install failed: plugin integrity check failed")
                 return
             }
-
-            destFile.copyTo(File(codeCacheDir, dexFilename), overwrite = true)
 
             // Register in local registry
             app.localPluginRegistry.register(

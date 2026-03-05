@@ -29,7 +29,6 @@ class OneApp : Application() {
         super.onCreate()
 
         val pluginsDir = File(filesDir, "plugins")
-        val codeCacheDir = File(codeCacheDir, "plugins")
 
         localPluginRegistry = LocalPluginRegistry(this)
         apkInstaller = ApkInstaller(context = this, client = httpClient)
@@ -43,16 +42,12 @@ class OneApp : Application() {
         updateChecker = UpdateChecker(
             api = api,
             pluginsDir = pluginsDir,
-            codeCacheDir = codeCacheDir,
             client = httpClient,
             installedVersionCode = BuildConfig.VERSION_CODE,
             registry = localPluginRegistry,
         )
 
-        pluginLoader = PluginLoader(
-            pluginsDir = pluginsDir,
-            codeCacheDir = codeCacheDir,
-        )
+        pluginLoader = PluginLoader(pluginsDir = pluginsDir)
 
         // Note: manifest is fetched asynchronously in MainActivity on the IO thread.
         // Fetching it here on the main thread always throws NetworkOnMainThreadException.
