@@ -76,6 +76,7 @@ kotlinc "$PLUGIN_SRC" \
 
 # Step 2: JAR → DEX using d8
 D8_PATH="${ANDROID_HOME}/build-tools/$(ls "${ANDROID_HOME}/build-tools" | sort -V | tail -1)/d8"
+mkdir -p "$OUT_DIR/${PLUGIN_ID}"
 "$D8_PATH" "$OUT_DIR/${PLUGIN_ID}.jar" --output "$OUT_DIR/${PLUGIN_ID}/"
 
 # Step 3: Rename classes.dex → plugin-<id>.dex
