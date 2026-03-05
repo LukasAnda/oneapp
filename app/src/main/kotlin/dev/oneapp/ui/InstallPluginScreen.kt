@@ -57,7 +57,7 @@ fun InstallPluginScreen(
         HorizontalDivider()
 
         DetailRow("Plugin ID", pluginId)
-        DetailRow("Version", "v$version${if (isUpdate) " (installed: v${existingEntry!!.version})" else ""}")
+        DetailRow("Version", "v$version${if (isUpdate && existingEntry != null) " (installed: v${existingEntry.version})" else ""}")
         DetailRow("Source", dexUrl)
         DetailRow("Entry class", entryClass)
 

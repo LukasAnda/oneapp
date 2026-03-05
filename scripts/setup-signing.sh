@@ -30,9 +30,10 @@ if [ -f "$KEYSTORE" ]; then
 else
   echo "Generating Android signing key..."
 
-  # Generate a random 32-char hex password
+  # Generate a single random password for both store and key.
+  # PKCS12 (default in JDK 17+) does not support separate key/store passwords.
   STORE_PASS=$(python3 -c "import secrets; print(secrets.token_hex(16))")
-  KEY_PASS=$(python3 -c "import secrets; print(secrets.token_hex(16))")
+  KEY_PASS=$STORE_PASS
 
   keytool -genkey -v \
     -keystore "$KEYSTORE" \
