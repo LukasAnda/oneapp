@@ -1,0 +1,96 @@
+name: Sync from template
+
+# Opt-in auto-update from the OneApp template repo.
+#
+# HOW TO ENABLE:
+#   Repo → Settings → Secrets and variables → Actions → Variables → New repository variable
+#   Name:  TEMPLATE_AUTO_UPDATE
+#   Value: true
+#
+# When enabled, this workflow runs every Monday at 09:00 UTC and can also be
+# triggered manually. It fetches changes from the upstream template, merges
+# them into your main branch, and uses Claude Sonnet to resolve any conflicts
+# automatically — no manual intervention required.
+#
+# To disable at any time, delete the TEMPLATE_AUTO_UPDATE variable or set it to false.
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'   # Every Monday at 09:00 UTC
+  workflow_dispatch:        # Manual trigger available regardless of opt-in
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    # Gate: only proceed if the user has explicitly opted in.
+    # workflow_dispatch always runs so the owner can test it, but it still
+    # checks the variable so accidental triggers don't push unwanted changes.
+    if: vars.TEMPLATE_AUTO_UPDATE == 'true'
+
+    permissions:
+      contents: write
+
+    env:
+      # The upstream template repo. This is pre-filled — do not change it.
+      TEMPLATE_SOURCE: ${{ vars.TEMPLATE_SOURCE_REPO || 'OWNER/oneapp' }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Use GITHUB_TOKEN with write permission so we can push back.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity
+        run: |
+          git config user.email "template-sync[bot]@users.noreply.github.com"
+          git config user.name "Template Sync"
+
+      - name: Add template remote and fetch
+        run: |
+          git remote add template "https://github.com/${{ env.TEMPLATE_SOURCE }}"
+          git fetch template main
+
+      - name: Check how far behind we are
+        id: check
+        run: |
+          BEHIND=$(git rev-list HEAD..template/main --count 2>/dev/null || echo 0)
+          echo "behind=$BEHIND" >> "$GITHUB_OUTPUT"
+          if [ "$BEHIND" -eq 0 ]; then
+            echo "Already up to date with template."
+          else
+            echo "Template is $BEHIND commit(s) ahead — merging."
+          fi
+
+      - name: Attempt merge
+        id: merge
+        if: steps.check.outputs.behind != '0'
+        # Allow non-zero exit (conflicts) — we handle them in the next step.
+        run: |
+          if git merge template/main --no-edit; then
+            echo "conflicts=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Merge produced conflicts — will resolve with Claude Sonnet."
+            echo "conflicts=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Python dependencies for conflict resolution
+        if: steps.merge.outputs.conflicts == 'true'
+        run: pip install anthropic --quiet
+
+      - name: Resolve conflicts with Claude Sonnet
+        if: steps.merge.outputs.conflicts == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python scripts/resolve_conflicts.py
+
+      - name: Commit resolved merge
+        if: steps.merge.outputs.conflicts == 'true'
+        run: |
+          # MERGE_MSG was written by git merge — reuse it as the commit message.
+          git commit --no-edit
+
+      - name: Push to main
+        if: steps.check.outputs.behind != '0'
+        run: git push origin main

@@ -1,0 +1,18 @@
+name: Mark repo as template
+
+# Run this once after pushing to GitHub.
+# Makes this repo a GitHub Template so others can use "Use this template".
+on:
+  workflow_dispatch:
+
+jobs:
+  mark-template:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set is_template via GitHub API
+        run: |
+          curl -s -X PATCH \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}" \
+            -d '{"is_template": true}' | jq '.is_template'

@@ -1,0 +1,66 @@
+name: Build and Release Core APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'build.gradle.kts'
+      - 'gradle/**'
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Publish as stable release'
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build release APK
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GH_READ_TOKEN: ${{ secrets.GH_READ_TOKEN }}
+        run: ./gradlew :app:assembleRelease
+
+      - name: Sign APK
+        uses: r0adkll/sign-android-release@v1
+        with:
+          releaseDirectory: app/build/outputs/apk/release
+          signingKeyBase64: ${{ secrets.SIGNING_KEY_BASE64 }}
+          alias: ${{ secrets.SIGNING_KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.SIGNING_KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
+
+      - name: Generate version info
+        id: version
+        run: |
+          CODE=$(./gradlew -q :app:printVersionCode 2>/dev/null || echo "1")
+          NAME=$(./gradlew -q :app:printVersionName 2>/dev/null || echo "1.0.0")
+          echo "code=$CODE" >> $GITHUB_OUTPUT
+          echo "name=$NAME" >> $GITHUB_OUTPUT
+          echo "{\"versionCode\": $CODE, \"versionName\": \"$NAME\"}" > core-version.json
+
+      - name: Publish stable release
+        if: github.event_name == 'workflow_dispatch' && inputs.release == true
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "core-v${{ steps.version.outputs.name }}"
+          name: "Core APK v${{ steps.version.outputs.name }}"
+          files: |
+            app/build/outputs/apk/release/*.apk
+            core-version.json

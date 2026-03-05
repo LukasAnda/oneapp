@@ -1,0 +1,12 @@
+local.properties
+*.jks
+*.dex
+/build
+/app/build
+build-stubs/build/
+/.gradle
+.gradle/
+.idea/
+*.iml
+out/
+*.log

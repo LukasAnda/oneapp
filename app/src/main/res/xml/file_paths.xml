@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- For sharing downloaded APK files with the system installer -->
+    <files-path name="updates" path="updates/" />
+    <!-- For sharing downloaded plugin DEX files -->
+    <files-path name="plugins" path="plugins/" />
+</paths>
