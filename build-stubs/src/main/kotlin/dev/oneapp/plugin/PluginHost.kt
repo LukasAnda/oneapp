@@ -22,7 +22,7 @@ interface PluginHost {
      * @param icon  Material icon vector
      * @param onClick Invoked when the user taps the card
      */
-    fun addHomeCard(label: String, icon: ImageVector, onClick: () -> Unit)
+    fun addHomeCard(label: String, icon: ImageVector, onClick: () -> Unit, subtitle: String = "")
 
     /**
      * Registers a full-screen Compose destination reachable from a home card.
@@ -50,8 +50,8 @@ interface PluginHost {
 
     // ── Storage (sandboxed per plugin) ───────────────────────────────────────
 
-    /** Returns a SharedPreferences scoped to this plugin. */
-    fun getPrefs(pluginId: String): SharedPreferences
+    /** Returns a SharedPreferences scoped to this plugin. No argument — isolation is automatic. */
+    fun getPrefs(): SharedPreferences
 
     /** Reads a file from the plugin's private directory. Returns null if not found. */
     fun readFile(name: String): ByteArray?

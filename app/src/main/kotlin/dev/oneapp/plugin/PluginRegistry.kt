@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 data class HomeCard(
     val pluginId: String,
     val label: String,
+    val subtitle: String = "",
     val icon: ImageVector,
     val route: String?,
     val onClick: () -> Unit,

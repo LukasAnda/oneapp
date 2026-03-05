@@ -49,6 +49,11 @@ private fun PluginCard(card: HomeCard, onNavigate: (String) -> Unit) {
             Icon(imageVector = card.icon, contentDescription = card.label, modifier = Modifier.size(40.dp))
             Spacer(Modifier.height(8.dp))
             Text(card.label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+            if (card.subtitle.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Text(card.subtitle, style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }

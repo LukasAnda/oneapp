@@ -18,7 +18,7 @@ import kotlinx.coroutines.CoroutineScope
  */
 interface PluginHost {
 
-    fun addHomeCard(label: String, icon: ImageVector, onClick: () -> Unit)
+    fun addHomeCard(label: String, icon: ImageVector, onClick: () -> Unit, subtitle: String = "")
     fun addFullScreen(route: String, content: @Composable () -> Unit)
 
     fun requestPermission(permission: String, onResult: (Boolean) -> Unit)
