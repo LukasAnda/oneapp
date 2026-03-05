@@ -10,7 +10,6 @@ PLUGIN_SRC="${1:?Usage: compile-plugin.sh <source.kt> <plugin-id>}"
 PLUGIN_ID="${2:?Usage: compile-plugin.sh <source.kt> <plugin-id>}"
 STUBS_JAR="build-stubs/build/libs/build-stubs.jar"
 CLASSPATH_FILE="app/build/plugin-classpath.txt"
-COMPILER_PLUGINS_FILE="app/build/kotlin-compiler-plugins.txt"
 OUT_DIR="out"
 
 mkdir -p "$OUT_DIR"
@@ -49,14 +48,23 @@ for entry in "${ENTRIES[@]}"; do
 done
 COMPILE_CP="${COMPILE_CP#:}"  # strip leading colon
 
-# Build -Xplugin args for Kotlin compiler plugins (Compose compiler, etc.)
-# Without the Compose compiler plugin, inline @Composable functions fail to compile.
+# Find the Compose compiler plugin (non-embeddable, compatible with standalone kotlinc).
+# The -embeddable variant uses shaded IntelliJ class names not present in standalone kotlin-compiler.jar.
+# Priority: 1) COMPOSE_COMPILER_PLUGIN env var (set by CI), 2) kotlinc/lib/ bundled, 3) none.
+COMPOSE_PLUGIN="${COMPOSE_COMPILER_PLUGIN:-}"
+if [ -z "$COMPOSE_PLUGIN" ] || [ ! -f "$COMPOSE_PLUGIN" ]; then
+    KOTLINC_LIB="$(dirname "$(command -v kotlinc)")/../lib"
+    if [ -f "$KOTLINC_LIB/compose-compiler-plugin.jar" ]; then
+        COMPOSE_PLUGIN="$KOTLINC_LIB/compose-compiler-plugin.jar"
+    fi
+fi
+
 PLUGIN_ARGS=""
-if [ -f "$COMPILER_PLUGINS_FILE" ] && [ -s "$COMPILER_PLUGINS_FILE" ]; then
-    IFS=':' read -ra PLUGIN_JARS <<< "$(cat "$COMPILER_PLUGINS_FILE")"
-    for jar in "${PLUGIN_JARS[@]}"; do
-        [ -f "$jar" ] && PLUGIN_ARGS="$PLUGIN_ARGS -Xplugin=$jar"
-    done
+if [ -n "$COMPOSE_PLUGIN" ] && [ -f "$COMPOSE_PLUGIN" ]; then
+    echo "Using Compose compiler plugin: $COMPOSE_PLUGIN"
+    PLUGIN_ARGS="-Xplugin=$COMPOSE_PLUGIN"
+else
+    echo "Warning: Compose compiler plugin not found — @Composable inline functions may fail" >&2
 fi
 
 # Step 1: Kotlin source → JAR

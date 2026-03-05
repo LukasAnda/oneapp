@@ -31,6 +31,13 @@ jobs:
           curl -fsSL "https://github.com/JetBrains/kotlin/releases/download/v${KOTLIN_VERSION}/kotlin-compiler-${KOTLIN_VERSION}.zip" -o kotlin.zip
           unzip -q kotlin.zip
           echo "$PWD/kotlinc/bin" >> $GITHUB_PATH
+          # Download the NON-embeddable Compose compiler plugin — required for standalone kotlinc.
+          # The -embeddable variant uses shaded org.jetbrains.kotlin.com.intellij.* class names
+          # that don't exist in the standalone kotlin-compiler.jar (only in kotlin-compiler-embeddable.jar).
+          COMPOSE_JAR="$PWD/kotlinc/lib/compose-compiler-plugin.jar"
+          curl -fsSL "https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-compose-compiler-plugin/${KOTLIN_VERSION}/kotlin-compose-compiler-plugin-${KOTLIN_VERSION}.jar" \
+            -o "$COMPOSE_JAR"
+          echo "COMPOSE_COMPILER_PLUGIN=$COMPOSE_JAR" >> $GITHUB_ENV
 
       - name: Setup Gradle and build stubs + plugin classpath
         uses: gradle/actions/setup-gradle@v3
