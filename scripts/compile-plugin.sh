@@ -16,12 +16,20 @@ mkdir -p "$OUT_DIR"
 
 echo "Compiling $PLUGIN_SRC -> plugin-${PLUGIN_ID}.dex"
 
-# Build the classpath: stubs (plugin interface) + full app compile classpath (Android SDK, Compose, etc.)
+# android.jar contains the Android platform API (android.app.*, android.content.*, android.os.*, etc.)
+# It is NOT a Maven dependency — it ships with the SDK platform.
+ANDROID_JAR="${ANDROID_HOME}/platforms/android-36/android.jar"
+if [ ! -f "$ANDROID_JAR" ]; then
+    echo "Error: android.jar not found at $ANDROID_JAR" >&2
+    exit 1
+fi
+
+# Build the classpath: android.jar + stubs (plugin interface) + Maven deps (Compose, OkHttp, etc.)
 if [ -f "$CLASSPATH_FILE" ]; then
-    RAW_CP="$STUBS_JAR:$(cat "$CLASSPATH_FILE")"
+    RAW_CP="$ANDROID_JAR:$STUBS_JAR:$(cat "$CLASSPATH_FILE")"
 else
-    echo "Warning: $CLASSPATH_FILE not found — falling back to stubs only"
-    RAW_CP="$STUBS_JAR"
+    echo "Warning: $CLASSPATH_FILE not found — falling back to android.jar + stubs only"
+    RAW_CP="$ANDROID_JAR:$STUBS_JAR"
 fi
 
 # kotlinc only accepts JARs, not AARs. Extract classes.jar from each .aar entry.

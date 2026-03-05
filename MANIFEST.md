@@ -19,7 +19,7 @@ github_repo: REPLACE_WITH_YOUR_REPO
 - requestPermission(permission, onResult)
 - httpGet(url, headers)
 - httpPost(url, body, headers)
-- getPrefs(pluginId)
+- getPrefs()  // no argument — storage is automatically scoped to this plugin's ID
 - readFile(name)
 - writeFile(name, data)
 - context (read-only)
