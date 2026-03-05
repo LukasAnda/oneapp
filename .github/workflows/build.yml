@@ -50,6 +50,8 @@ jobs:
 
       - name: Generate version info
         id: version
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
         run: |
           CODE=$(./gradlew -q :app:printVersionCode 2>/dev/null || echo "1")
           NAME=$(./gradlew -q :app:printVersionName 2>/dev/null || echo "1.0.0")
@@ -57,12 +59,11 @@ jobs:
           echo "name=$NAME" >> $GITHUB_OUTPUT
           echo "{\"versionCode\": $CODE, \"versionName\": \"$NAME\"}" > core-version.json
 
-      - name: Publish stable release
-        if: github.event_name == 'workflow_dispatch' && inputs.release == true
+      - name: Publish APK to stable release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "core-v${{ steps.version.outputs.name }}"
-          name: "Core APK v${{ steps.version.outputs.name }}"
+          tag_name: stable
+          name: "Stable Plugins"
           files: |
             app/build/outputs/apk/release/*.apk
             core-version.json
