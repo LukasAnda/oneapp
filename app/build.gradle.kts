@@ -75,6 +75,19 @@ kotlin {
     jvmToolchain(17)
 }
 
+// Writes the full debug compile classpath to a file so the plugin compiler can use it.
+tasks.register("writePluginClasspath") {
+    doLast {
+        val cp = configurations.getByName("debugCompileClasspath")
+            .resolvedConfiguration.resolvedArtifacts
+            .joinToString(File.pathSeparator) { it.file.absolutePath }
+        layout.buildDirectory.file("plugin-classpath.txt").get().asFile.also {
+            it.parentFile.mkdirs()
+            it.writeText(cp)
+        }
+    }
+}
+
 tasks.register("printVersionCode") {
     doLast {
         println(android.defaultConfig.versionCode)
