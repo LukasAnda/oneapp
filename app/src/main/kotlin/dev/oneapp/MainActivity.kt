@@ -19,6 +19,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import dev.oneapp.core.LocalPluginRegistry
@@ -135,12 +137,22 @@ class MainActivity : ComponentActivity() {
                 // Run update check + plugin load on first composition
                 LaunchedEffect(Unit) {
                     lifecycleScope.launch {
+                        // Fetch manifest on IO thread first — must happen before download/load
+                        // because both need entry class names from the manifest.
+                        // (Calling this on the main thread always throws NetworkOnMainThreadException.)
+                        val freshManifest = withContext(Dispatchers.IO) {
+                            runCatching { app.api.fetchManifest() }.getOrNull()
+                        }
+                        if (!freshManifest.isNullOrEmpty()) {
+                            app.manifestContent = freshManifest
+                        }
+
                         // Check for APK update
                         runCatching {
                             pendingApkUpdate = app.updateChecker.checkForApkUpdate()
                         }.onFailure { Log.e(TAG, "APK update check failed", it) }
 
-                        // Download new plugin DEX files
+                        // Download new plugin DEX files and register them
                         runCatching {
                             app.updateChecker.checkAndDownload(app.manifestContent)
                         }.onFailure { Log.e(TAG, "Plugin update check failed", it) }

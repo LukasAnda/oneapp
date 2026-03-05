@@ -36,18 +36,24 @@ class UpdateChecker(
         dexAssets.mapNotNull { asset ->
             runCatching {
                 val destFile = File(pluginsDir, asset.name)
-                if (destFile.exists() && destFile.length() == asset.size) {
-                    Log.d(TAG, "Skip ${asset.name} — already up to date")
-                    return@mapNotNull null
-                }
-                downloadFile(asset.downloadUrl, destFile)
                 val cachedFile = File(codeCacheDir, asset.name)
-                destFile.copyTo(cachedFile, overwrite = true)
-                Log.i(TAG, "Downloaded ${asset.name}")
+                val needsDownload = !destFile.exists() || destFile.length() != asset.size
+
+                if (needsDownload) {
+                    downloadFile(asset.downloadUrl, destFile)
+                    Log.i(TAG, "Downloaded ${asset.name}")
+                } else {
+                    Log.d(TAG, "Skip download ${asset.name} — already up to date")
+                }
+
+                // Always copy to code cache — it may have been evicted by the OS
+                if (needsDownload || !cachedFile.exists()) {
+                    destFile.copyTo(cachedFile, overwrite = true)
+                }
 
                 val pluginId = pluginIdFromFilename(asset.name)
 
-                // Sync into local registry using manifest for entry class
+                // Always (re)register entry class — manifest may have been empty on prior launch
                 if (registry != null && manifestContent.isNotEmpty()) {
                     val entryClass = entryClassFromManifest(manifestContent, pluginId)
                     if (entryClass != null) {
@@ -55,15 +61,16 @@ class UpdateChecker(
                             LocalPluginRegistry.PluginEntry(
                                 id = pluginId,
                                 entryClass = entryClass,
-                                version = 1, // agent bumps this in manifest; good enough for now
+                                version = 1,
                                 source = "own",
                             )
                         )
                     }
                 }
-                pluginId
+
+                if (needsDownload) pluginId else null
             }.getOrElse { e ->
-                Log.e(TAG, "Failed to download ${asset.name}", e)
+                Log.e(TAG, "Failed to process ${asset.name}", e)
                 null
             }
         }

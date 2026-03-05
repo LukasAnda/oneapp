@@ -17,6 +17,7 @@ class OneApp : Application() {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     val httpClient = OkHttpClient()
 
+    lateinit var api: GitHubReleasesApi
     lateinit var updateChecker: UpdateChecker
     lateinit var pluginLoader: PluginLoader
     lateinit var localPluginRegistry: LocalPluginRegistry
@@ -33,7 +34,7 @@ class OneApp : Application() {
         localPluginRegistry = LocalPluginRegistry(this)
         apkInstaller = ApkInstaller(context = this, client = httpClient)
 
-        val api = GitHubReleasesApi(
+        api = GitHubReleasesApi(
             client = httpClient,
             repo = BuildConfig.GITHUB_REPO,
             token = BuildConfig.GITHUB_TOKEN,
@@ -53,6 +54,7 @@ class OneApp : Application() {
             codeCacheDir = codeCacheDir,
         )
 
-        manifestContent = runCatching { api.fetchManifest() }.getOrNull() ?: ""
+        // Note: manifest is fetched asynchronously in MainActivity on the IO thread.
+        // Fetching it here on the main thread always throws NetworkOnMainThreadException.
     }
 }

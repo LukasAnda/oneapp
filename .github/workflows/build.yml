@@ -7,12 +7,8 @@ on:
       - 'app/**'
       - 'build.gradle.kts'
       - 'gradle/**'
+      - 'plugins/**'
   workflow_dispatch:
-    inputs:
-      release:
-        description: 'Publish as stable release'
-        type: boolean
-        default: false
 
 jobs:
   build:
@@ -32,6 +28,18 @@ jobs:
         with:
           packages: 'platforms;android-36 build-tools;36.0.0'
 
+      - name: Install Kotlin compiler
+        run: |
+          KOTLIN_VERSION=2.3.0
+          curl -fsSL "https://github.com/JetBrains/kotlin/releases/download/v${KOTLIN_VERSION}/kotlin-compiler-${KOTLIN_VERSION}.zip" -o kotlin.zip
+          unzip -q kotlin.zip
+          echo "$PWD/kotlinc/bin" >> $GITHUB_PATH
+          # Non-embeddable Compose compiler plugin — compatible with standalone kotlinc
+          COMPOSE_JAR="$PWD/kotlinc/lib/compose-compiler-plugin.jar"
+          curl -fsSL "https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-compose-compiler-plugin/${KOTLIN_VERSION}/kotlin-compose-compiler-plugin-${KOTLIN_VERSION}.jar" \
+            -o "$COMPOSE_JAR"
+          echo "COMPOSE_COMPILER_PLUGIN=$COMPOSE_JAR" >> $GITHUB_ENV
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
@@ -48,10 +56,21 @@ jobs:
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: ./gradlew :app:assembleRelease
 
+      - name: Build stubs and plugin classpath
+        run: ./gradlew :build-stubs:jar :app:writePluginClasspath
+
+      - name: Compile all own plugins
+        run: |
+          mkdir -p out
+          shopt -s nullglob
+          for kt_file in plugins/*.kt; do
+            plugin_id=$(basename "$kt_file" .kt)
+            echo "Compiling $kt_file as $plugin_id"
+            bash scripts/compile-plugin.sh "$kt_file" "$plugin_id"
+          done
+
       - name: Generate version info
         id: version
-        env:
-          GITHUB_RUN_NUMBER: ${{ github.run_number }}
         run: |
           CODE=$(./gradlew -q :app:printVersionCode 2>/dev/null || echo "1")
           NAME=$(./gradlew -q :app:printVersionName 2>/dev/null || echo "1.0.0")
@@ -59,7 +78,7 @@ jobs:
           echo "name=$NAME" >> $GITHUB_OUTPUT
           echo "{\"versionCode\": $CODE, \"versionName\": \"$NAME\"}" > core-version.json
 
-      - name: Publish APK to stable release
+      - name: Publish APK and plugins to stable release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: stable
@@ -67,3 +86,4 @@ jobs:
           files: |
             app/build/outputs/apk/release/*.apk
             core-version.json
+            out/*.dex
