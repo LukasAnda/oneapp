@@ -180,14 +180,13 @@ class GoodMorningPlugin : Plugin {
 
         // ── Full-screen UI ───────────────────────────────────────────────────
         host.addFullScreen("goodmorning_main") {
-            val prefs  = host.getPrefs()
             var enabled by remember {
-                mutableStateOf(prefs.getBoolean(PREF_KEY_ENABLED, false))
+                mutableStateOf(isEnabledInPrefs(ctx))
             }
 
             fun toggle(newValue: Boolean) {
                 enabled = newValue
-                prefs.edit().putBoolean(PREF_KEY_ENABLED, newValue).apply()
+                setEnabledInPrefs(ctx, newValue)
                 cardFlow.value = currentContent(newValue)  // update home card subtitle reactively
                 if (newValue) {
                     // Also request POST_NOTIFICATIONS at runtime
