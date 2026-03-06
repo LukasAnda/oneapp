@@ -93,9 +93,9 @@ private fun PluginCard(entry: CardEntry, onNavigate: (String) -> Unit, onError: 
             if (isUpdating) {
                 CircularProgressIndicator(
                     modifier = Modifier
+                        .padding(4.dp)
                         .size(16.dp)
-                        .align(Alignment.TopEnd)
-                        .padding(4.dp),
+                        .align(Alignment.TopEnd),
                     strokeWidth = 2.dp,
                 )
             }
