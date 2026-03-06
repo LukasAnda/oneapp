@@ -192,44 +192,25 @@ class MainActivity : ComponentActivity() {
                 }
 
                 // Run update check + plugin load on first composition
+                fun makeHost(pluginId: String, trust: PluginTrust): PluginHostImpl = PluginHostImpl(
+                    context = applicationContext,
+                    coroutineScope = lifecycleScope,
+                    permissionBroker = permissionBroker,
+                    client = app.httpClient,
+                    pluginDataDir = File(filesDir, "plugin_data"),
+                    pluginId = pluginId,
+                    trust = trust,
+                )
+
                 LaunchedEffect(Unit) {
-                    lifecycleScope.launch {
-                        // Fetch manifest on IO thread first — must happen before download/load
-                        val freshManifest = withContext(Dispatchers.IO) {
-                            runCatching { app.api.fetchManifest() }.getOrNull()
-                        }
-                        if (!freshManifest.isNullOrEmpty()) {
-                            app.manifestContent = freshManifest
-                        }
-
-                        // Check for APK update
-                        runCatching {
-                            pendingApkUpdate = app.updateChecker.checkForApkUpdate()
-                        }.onFailure { Log.e(TAG, "APK update check failed", it) }
-
-                        // Download new plugin DEX files and register them
-                        runCatching {
-                            app.updateChecker.checkAndDownload(app.manifestContent)
-                        }.onFailure { Log.e(TAG, "Plugin update check failed", it) }
-
-                        // Load all plugins — fullScreens populated here triggers NavDisplay recompose
-                        PluginRegistry.clear()
-                        app.pluginLoader.loadAll(
-                            manifestContent = app.manifestContent,
-                            hostFactory = { pluginId, trust ->
-                                PluginHostImpl(
-                                    context = applicationContext,
-                                    coroutineScope = lifecycleScope,
-                                    permissionBroker = permissionBroker,
-                                    client = app.httpClient,
-                                    pluginDataDir = File(filesDir, "plugin_data"),
-                                    pluginId = pluginId,
-                                    trust = trust,
-                                )
-                            },
-                            registry = app.localPluginRegistry,
-                        )
-                    }
+                    // Phase 1: Instant load from whatever DEX files are already on disk.
+                    // No network — shows cards immediately on cold start.
+                    PluginRegistry.clear()
+                    app.pluginLoader.loadAll(
+                        manifestContent = app.manifestContent,
+                        hostFactory = { pluginId, trust -> makeHost(pluginId, trust) },
+                        registry = app.localPluginRegistry,
+                    )
 
                     // Navigate to install screen if launched from deep link
                     deepLinkInstall?.let { params ->
@@ -242,6 +223,49 @@ class MainActivity : ComponentActivity() {
                                 hash = params.hash,
                             )
                         )
+                    }
+
+                    // Phase 2: Background network checks. Re-loads plugins only if updates were downloaded.
+                    lifecycleScope.launch {
+                        val freshManifest = withContext(Dispatchers.IO) {
+                            runCatching { app.api.fetchManifest() }.getOrNull()
+                        }
+                        if (!freshManifest.isNullOrEmpty()) {
+                            app.manifestContent = freshManifest
+                        }
+
+                        runCatching {
+                            pendingApkUpdate = app.updateChecker.checkForApkUpdate()
+                        }.onFailure { Log.e(TAG, "APK update check failed", it) }
+
+                        val updatedPlugins = runCatching {
+                            app.updateChecker.checkAndDownload(
+                                manifestContent = app.manifestContent,
+                                onDownloadStart = { pluginId ->
+                                    lifecycleScope.launch(Dispatchers.Main) {
+                                        PluginRegistry.markUpdating(pluginId)
+                                    }
+                                },
+                                onDownloadEnd = { pluginId ->
+                                    lifecycleScope.launch(Dispatchers.Main) {
+                                        PluginRegistry.unmarkUpdating(pluginId)
+                                    }
+                                },
+                            )
+                        }.getOrElse { e ->
+                            Log.e(TAG, "Plugin update check failed", e)
+                            emptyList()
+                        }
+
+                        // Reload only if any plugin was actually updated
+                        if (updatedPlugins.isNotEmpty()) {
+                            PluginRegistry.clear()
+                            app.pluginLoader.loadAll(
+                                manifestContent = app.manifestContent,
+                                hostFactory = { pluginId, trust -> makeHost(pluginId, trust) },
+                                registry = app.localPluginRegistry,
+                            )
+                        }
                     }
                 }
             }
