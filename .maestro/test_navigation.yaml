@@ -1,7 +1,9 @@
 appId: dev.oneapp
 ---
-# Launch app (already installed, don't clear state to avoid driver issues)
-- launchApp
+# NOTE: Maestro's gRPC driver requires the instrument to be running before this test.
+# Start it with: adb shell am instrument -w dev.mobile.maestro.test/androidx.test.runner.AndroidJUnitRunner
+# Then run: maestro test .maestro/test_navigation.yaml
+# The app must already be at the home screen (launched separately if needed).
 
 # Wait for plugins to download and load (network + DEX loading)
 - extendedWaitUntil:
