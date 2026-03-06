@@ -20,9 +20,13 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation3.runtime.NavBackStack
@@ -118,8 +122,19 @@ class MainActivity : ComponentActivity() {
                             // plugins loading and shows the correct screen once available.
                             entry<PluginScreenKey> { key ->
                                 val screen = PluginRegistry.fullScreens.find { it.route == key.route }
+                                val pluginId = PluginRegistry.cardEntries.find { it.route == key.route }?.pluginId
+                                val seedColor = pluginId?.let { PluginRegistry.pluginThemes[it] }
+
                                 if (screen != null) {
-                                    screen.content()
+                                    if (seedColor != null) {
+                                        val darkTheme = isSystemInDarkTheme()
+                                        val base = if (darkTheme) darkColorScheme() else lightColorScheme()
+                                        MaterialTheme(colorScheme = base.copy(primary = Color(seedColor), onPrimary = Color.White)) {
+                                            screen.content()
+                                        }
+                                    } else {
+                                        screen.content()
+                                    }
                                 } else {
                                     Column(
                                         modifier = Modifier.fillMaxSize().padding(24.dp),
