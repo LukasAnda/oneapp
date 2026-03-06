@@ -227,6 +227,9 @@ def retrigger_evolve(iteration: int) -> None:
         except urllib.error.HTTPError as e:
             print(f"GitHub API {method} {url} failed: {e.code} {e.reason}")
             return e.code
+        except urllib.error.URLError as e:
+            print(f"GitHub API {method} {url} network error: {e.reason}")
+            return 0
 
     # Remove evolve label — fires no event
     api_call("DELETE", f"{base_url}/labels/evolve")
@@ -327,6 +330,7 @@ def main():
     print(f"Wrote plugin source: {plugin_path}")
 
     # Post-compile completeness check — re-trigger if task not fully done
+    retrigger_posted = False
     iteration = get_current_iteration()
     if iteration < MAX_ITERATIONS:
         final_kt = extract_block(current_response, "kotlin") or kotlin_src
@@ -340,6 +344,7 @@ def main():
             )
             Path("/tmp/agent_comment.txt").write_text(retrigger_comment)
             retrigger_evolve(next_iteration)
+            retrigger_posted = True
             # Fall through — still write MANIFEST/JOURNAL for this iteration
     else:
         print(f"Reached max iterations ({MAX_ITERATIONS}) — stopping self-trigger loop")
@@ -391,8 +396,9 @@ def main():
     JOURNAL_PATH.write_text("\n".join(journal_lines))
     print("Updated JOURNAL.md")
 
-    # Write issue comment
-    Path("/tmp/agent_comment.txt").write_text(action["comment_for_issue"])
+    # Write issue comment — skip if we already wrote a re-trigger comment above
+    if not retrigger_posted:
+        Path("/tmp/agent_comment.txt").write_text(action["comment_for_issue"])
     print("Done")
 
 
