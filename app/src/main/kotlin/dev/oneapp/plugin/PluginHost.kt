@@ -3,8 +3,8 @@ package dev.oneapp.plugin
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.vector.ImageVector
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * The API surface the core exposes to all plugins.
@@ -19,13 +19,26 @@ import kotlinx.coroutines.CoroutineScope
 interface PluginHost {
 
     /**
-     * Adds a tappable card to the home screen.
-     * @param config JSON string with card properties. Required: "label". Optional: "subtitle".
-     *               Example: {"label":"Notes","subtitle":"Your private notes"}
-     *               Using JSON lets new properties be added without breaking existing plugins.
+     * Registers a reactive home card. The card content (label, subtitle, optional icon)
+     * is driven by [content] — HomeScreen recomposes whenever the flow emits.
+     * @param content StateFlow of HomeCardContent owned and updated by the plugin.
+     * @param route   Optional navigation route. If non-null, tapping navigates; onClick is ignored.
+     * @param onClick Called on tap when route is null.
      */
-    fun addHomeCard(config: String, icon: ImageVector, onClick: () -> Unit)
+    fun addHomeCard(
+        content: StateFlow<HomeCardContent>,
+        route: String? = null,
+        onClick: () -> Unit = {},
+    )
     fun addFullScreen(route: String, content: @Composable () -> Unit)
+
+    /**
+     * Sets a seed color for this plugin's theme.
+     * The home card icon is tinted with this color.
+     * The plugin's full screen is wrapped in a MaterialTheme generated from this seed.
+     * @param seedColor ARGB color as Long, e.g. 0xFFFFA000L for amber.
+     */
+    fun registerTheme(seedColor: Long)
 
     fun requestPermission(permission: String, onResult: (Boolean) -> Unit)
 
