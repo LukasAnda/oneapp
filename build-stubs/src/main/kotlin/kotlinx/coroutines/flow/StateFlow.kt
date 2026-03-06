@@ -1,3 +1,5 @@
+// Compile-time stub. Plugins compile against this; the real implementation
+// is provided by kotlinx-coroutines-core bundled in the host APK.
 package kotlinx.coroutines.flow
 
 interface Flow<out T>
