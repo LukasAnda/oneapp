@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'app/**'
+      - 'build-stubs/**'
       - 'build.gradle.kts'
       - 'gradle/**'
       - 'plugins/**'
