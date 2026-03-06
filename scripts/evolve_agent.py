@@ -9,10 +9,15 @@ import sys
 import json
 import re
 import subprocess
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
 import anthropic
+
+MAX_ITERATIONS = 5
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+GITHUB_REPO = os.environ.get("GITHUB_REPOSITORY", "")  # e.g. "owner/repo"
 
 REPO_ROOT = Path(__file__).parent.parent
 MANIFEST_PATH = REPO_ROOT / "MANIFEST.md"
@@ -156,6 +161,80 @@ def select_model(client: anthropic.Anthropic) -> str:
         return SONNET
 
 
+def get_current_iteration() -> int:
+    """Parse iteration count from issue body comment marker."""
+    marker = "<!-- evolve-iteration:"
+    for line in ISSUE_BODY.splitlines():
+        if marker in line:
+            try:
+                return int(line.split(":")[1].strip().rstrip(" -->"))
+            except (ValueError, IndexError):
+                pass
+    return 1
+
+
+def evaluate_completeness(client: anthropic.Anthropic, model: str, kotlin_src: str) -> bool:
+    """Ask Claude whether the built plugin fully satisfies the issue request.
+
+    Returns True if complete (or if evaluation fails — safer to not re-trigger).
+    """
+    result = client.messages.create(
+        model=model,
+        max_tokens=100,
+        messages=[{
+            "role": "user",
+            "content": (
+                f"Issue #{ISSUE_NUMBER}: {ISSUE_TITLE}\n{ISSUE_BODY[:800]}\n\n"
+                f"Plugin built:\n```kotlin\n{kotlin_src[:2000]}\n```\n\n"
+                "Does this plugin fully satisfy the issue request? "
+                'Reply with JSON only: {"complete": true} or {"complete": false, "reason": "one sentence"}'
+            ),
+        }],
+    )
+    try:
+        data = json.loads(result.content[0].text.strip())
+        complete = data.get("complete", True)
+        if not complete:
+            print(f"Completeness check: INCOMPLETE — {data.get('reason', '')}")
+        else:
+            print("Completeness check: COMPLETE")
+        return complete
+    except (json.JSONDecodeError, KeyError):
+        print("Completeness check parse failed, assuming complete")
+        return True
+
+
+def retrigger_evolve(iteration: int) -> None:
+    """Re-trigger the evolve workflow by removing and re-adding the 'evolve' label."""
+    if not GITHUB_TOKEN or not GITHUB_REPO:
+        print("No GITHUB_TOKEN/GITHUB_REPOSITORY — cannot re-trigger")
+        return
+
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+        "Content-Type": "application/json",
+    }
+
+    base_url = f"https://api.github.com/repos/{GITHUB_REPO}/issues/{ISSUE_NUMBER}"
+
+    def api_call(method: str, url: str, body: dict | None = None) -> int:
+        data = json.dumps(body).encode() if body else None
+        req = urllib.request.Request(url, data=data, headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(req) as r:
+                return r.status
+        except urllib.error.HTTPError as e:
+            print(f"GitHub API {method} {url} failed: {e.code} {e.reason}")
+            return e.code
+
+    # Remove evolve label — fires no event
+    api_call("DELETE", f"{base_url}/labels/evolve")
+    # Re-add evolve label — fires issues: labeled event → new workflow run
+    api_call("POST", f"{base_url}/labels", {"labels": ["evolve"]})
+    print(f"Re-triggered evolve for issue #{ISSUE_NUMBER} (iteration {iteration})")
+
+
 def main():
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
@@ -246,6 +325,24 @@ def main():
         print(f"Got fix from agent (attempt {attempt + 2})")
 
     print(f"Wrote plugin source: {plugin_path}")
+
+    # Post-compile completeness check — re-trigger if task not fully done
+    iteration = get_current_iteration()
+    if iteration < MAX_ITERATIONS:
+        final_kt = extract_block(current_response, "kotlin") or kotlin_src
+        is_complete = evaluate_completeness(client, model, final_kt)
+        if not is_complete:
+            next_iteration = iteration + 1
+            retrigger_comment = (
+                f"🔄 Iteration {iteration}/{MAX_ITERATIONS}: plugin compiled but task is not yet "
+                f"fully complete. Re-triggering evolution...\n\n"
+                f"<!-- evolve-iteration: {next_iteration} -->"
+            )
+            Path("/tmp/agent_comment.txt").write_text(retrigger_comment)
+            retrigger_evolve(next_iteration)
+            # Fall through — still write MANIFEST/JOURNAL for this iteration
+    else:
+        print(f"Reached max iterations ({MAX_ITERATIONS}) — stopping self-trigger loop")
 
     # Patch AndroidManifest.xml with any new permissions
     new_perms = action.get("new_manifest_permissions", [])
