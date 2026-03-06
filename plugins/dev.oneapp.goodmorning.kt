@@ -198,14 +198,8 @@ class GoodMorningPlugin : Plugin {
                 }
             }
 
-            val subtitle = when {
-                !enabled -> "Disabled"
-                else -> {
-                    val now    = System.currentTimeMillis()
-                    val today8 = todayAt8().timeInMillis
-                    if (now < today8) "Today at 08:00" else "Tomorrow at 08:00"
-                }
-            }
+            // Collect from cardFlow — single source of truth for subtitle
+            val subtitle = cardFlow.collectAsState().value.subtitle
 
             Surface(Modifier.fillMaxSize()) {
                 Column(

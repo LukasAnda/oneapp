@@ -64,6 +64,17 @@ class MainActivity : ComponentActivity() {
         val deepLinkInstall = intent?.data?.takeIf { it.scheme == "oneapp" && it.host == "install" }
             ?.let { parseInstallDeepLink(it) }
 
+        // Host factory — defined here (not inside composable) to avoid capturing a Composable scope.
+        fun makeHost(pluginId: String, trust: PluginTrust): PluginHostImpl = PluginHostImpl(
+            context = applicationContext,
+            coroutineScope = lifecycleScope,
+            permissionBroker = permissionBroker,
+            client = app.httpClient,
+            pluginDataDir = File(filesDir, "plugin_data"),
+            pluginId = pluginId,
+            trust = trust,
+        )
+
         setContent {
             OneAppTheme {
                 val snackbarHostState = remember { SnackbarHostState() }
@@ -191,17 +202,6 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
-                // Run update check + plugin load on first composition
-                fun makeHost(pluginId: String, trust: PluginTrust): PluginHostImpl = PluginHostImpl(
-                    context = applicationContext,
-                    coroutineScope = lifecycleScope,
-                    permissionBroker = permissionBroker,
-                    client = app.httpClient,
-                    pluginDataDir = File(filesDir, "plugin_data"),
-                    pluginId = pluginId,
-                    trust = trust,
-                )
-
                 LaunchedEffect(Unit) {
                     // Phase 1: Instant load from whatever DEX files are already on disk.
                     // No network — shows cards immediately on cold start.
@@ -241,16 +241,8 @@ class MainActivity : ComponentActivity() {
                         val updatedPlugins = runCatching {
                             app.updateChecker.checkAndDownload(
                                 manifestContent = app.manifestContent,
-                                onDownloadStart = { pluginId ->
-                                    lifecycleScope.launch(Dispatchers.Main) {
-                                        PluginRegistry.markUpdating(pluginId)
-                                    }
-                                },
-                                onDownloadEnd = { pluginId ->
-                                    lifecycleScope.launch(Dispatchers.Main) {
-                                        PluginRegistry.unmarkUpdating(pluginId)
-                                    }
-                                },
+                                onDownloadStart = { pluginId -> runOnUiThread { PluginRegistry.markUpdating(pluginId) } },
+                                onDownloadEnd = { pluginId -> runOnUiThread { PluginRegistry.unmarkUpdating(pluginId) } },
                             )
                         }.getOrElse { e ->
                             Log.e(TAG, "Plugin update check failed", e)
