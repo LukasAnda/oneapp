@@ -25,7 +25,11 @@ class UpdateChecker(
      * Also registers each downloaded plugin into LocalPluginRegistry if provided.
      * Returns list of plugin IDs that were updated.
      */
-    suspend fun checkAndDownload(manifestContent: String = ""): List<String> = withContext(Dispatchers.IO) {
+    suspend fun checkAndDownload(
+        manifestContent: String = "",
+        onDownloadStart: (pluginId: String) -> Unit = {},
+        onDownloadEnd: (pluginId: String) -> Unit = {},
+    ): List<String> = withContext(Dispatchers.IO) {
         pluginsDir.mkdirs()
 
         val assets = api.fetchLatestStableAssets()
@@ -35,15 +39,19 @@ class UpdateChecker(
             runCatching {
                 val destFile = File(pluginsDir, asset.name)
                 val needsDownload = !destFile.exists() || destFile.length() != asset.size
+                val pluginId = pluginIdFromFilename(asset.name)
 
                 if (needsDownload) {
-                    downloadFile(asset.downloadUrl, destFile)
-                    Log.i(TAG, "Downloaded ${asset.name}")
+                    onDownloadStart(pluginId)
+                    try {
+                        downloadFile(asset.downloadUrl, destFile)
+                        Log.i(TAG, "Downloaded ${asset.name}")
+                    } finally {
+                        onDownloadEnd(pluginId)
+                    }
                 } else {
                     Log.d(TAG, "Skip download ${asset.name} — already up to date")
                 }
-
-                val pluginId = pluginIdFromFilename(asset.name)
 
                 // Always (re)register entry class — manifest may have been empty on prior launch
                 if (registry != null && manifestContent.isNotEmpty()) {
