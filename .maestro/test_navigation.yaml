@@ -1,0 +1,42 @@
+appId: dev.oneapp
+---
+# Launch app (already installed, don't clear state to avoid driver issues)
+- launchApp
+
+# Wait for plugins to download and load (network + DEX loading)
+- extendedWaitUntil:
+    visible:
+      text: "Good Morning Alarm"
+    timeout: 30000
+
+# Verify both plugin cards are visible on home screen
+- assertVisible:
+    text: "Good Morning Alarm"
+- assertVisible:
+    text: "Hello"
+
+# Tap Good Morning Alarm card — should navigate to the plugin full screen
+- tapOn:
+    text: "Good Morning Alarm"
+
+# Verify the full screen loaded (contains the alarm toggle)
+- extendedWaitUntil:
+    visible:
+      text: "Good Morning Alarm"
+    timeout: 5000
+- assertVisible:
+    text: "Disabled"
+
+# Go back to home screen via system back
+- pressKey: Back
+
+# Verify home screen is back
+- assertVisible:
+    text: "Good Morning Alarm"
+- assertVisible:
+    text: "Hello"
+
+# Tap Hello card — should navigate to hello plugin screen (if it has one)
+# or do its onClick action
+- tapOn:
+    text: "Hello"
