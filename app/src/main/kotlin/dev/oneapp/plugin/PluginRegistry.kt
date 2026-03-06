@@ -6,6 +6,10 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.graphics.vector.ImageVector
 import kotlinx.coroutines.flow.StateFlow
 
+// NOTE: HomeCardContent and HomeCardData are declared in BOTH the app module (here) and
+// build-stubs. The stubs module is only a compile-time dependency for plugin builds — the
+// app module cannot depend on it at runtime. Keep the two definitions in sync manually.
+
 /**
  * Interface for dynamic home card content. Add new fields with default implementations
  * to stay binary-compatible with existing compiled plugins.
@@ -55,6 +59,7 @@ object PluginRegistry {
     val updatingPluginIds: List<String> get() = _updatingPluginIds
 
     internal fun addCard(entry: CardEntry) {
+        // One card slot per plugin — replaces any previous registration from this pluginId.
         _cardEntries.removeAll { it.pluginId == entry.pluginId }
         _cardEntries.add(entry)
     }
