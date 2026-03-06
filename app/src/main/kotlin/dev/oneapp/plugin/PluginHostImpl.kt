@@ -48,7 +48,9 @@ class PluginHostImpl(
         val json = org.json.JSONObject(config)
         val label = json.getString("label")
         val subtitle = json.optString("subtitle", "")
-        val route = "plugin_${label.lowercase().replace(" ", "_")}"
+        // Only set a route if explicitly specified in config — prevents navigation to non-existent routes.
+        // If no "route" key, onClick is used directly.
+        val route = json.optString("route", "").ifEmpty { null }
         PluginRegistry.addCard(
             HomeCard(pluginId = pluginId, label = label, subtitle = subtitle, icon = icon, route = route, onClick = onClick)
         )

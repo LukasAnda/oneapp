@@ -9,12 +9,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
@@ -84,10 +82,18 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     snackbarHost = { SnackbarHost(snackbarHostState) },
                     containerColor = MaterialTheme.colorScheme.background,
-                ) { _ ->
+                ) { paddingValues ->
                     NavHost(navController = navController, startDestination = "home") {
                         composable("home") {
-                            HomeScreen(onNavigate = { route -> navController.navigate(route) })
+                            HomeScreen(
+                                onNavigate = { route -> navController.navigate(route) },
+                                onError = { msg ->
+                                    lifecycleScope.launch {
+                                        snackbarHostState.showSnackbar(msg)
+                                    }
+                                },
+                                contentPadding = paddingValues,
+                            )
                         }
 
                         // External plugin install confirmation screen

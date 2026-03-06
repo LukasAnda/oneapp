@@ -1,5 +1,6 @@
 package dev.oneapp.ui
 
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -16,29 +17,44 @@ import dev.oneapp.plugin.HomeCard
 import dev.oneapp.plugin.PluginRegistry
 
 @Composable
-fun HomeScreen(onNavigate: (String) -> Unit) {
+fun HomeScreen(
+    onNavigate: (String) -> Unit,
+    onError: (String) -> Unit = {},
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+) {
     val cards = PluginRegistry.homeCards
 
     if (cards.isEmpty()) {
-        EmptyState()
+        EmptyState(contentPadding)
     } else {
         LazyVerticalGrid(
             columns = GridCells.Adaptive(140.dp),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = contentPadding.calculateTopPadding() + 16.dp,
+                bottom = contentPadding.calculateBottomPadding() + 16.dp,
+            ),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(cards, key = { it.pluginId }) { card ->
-                PluginCard(card = card, onNavigate = onNavigate)
+                PluginCard(card = card, onNavigate = onNavigate, onError = onError)
             }
         }
     }
 }
 
 @Composable
-private fun PluginCard(card: HomeCard, onNavigate: (String) -> Unit) {
+private fun PluginCard(card: HomeCard, onNavigate: (String) -> Unit, onError: (String) -> Unit) {
     ElevatedCard(
-        onClick = { card.route?.let(onNavigate) ?: card.onClick() },
+        onClick = {
+            runCatching { card.route?.let(onNavigate) ?: card.onClick() }
+                .onFailure { e ->
+                    Log.e("HomeScreen", "Plugin navigation failed for '${card.pluginId}'", e)
+                    onError("Plugin '${card.label}' failed: ${e.message}")
+                }
+        },
         modifier = Modifier.aspectRatio(1f),
     ) {
         Column(
@@ -59,8 +75,11 @@ private fun PluginCard(card: HomeCard, onNavigate: (String) -> Unit) {
 }
 
 @Composable
-private fun EmptyState() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+private fun EmptyState(contentPadding: PaddingValues = PaddingValues(0.dp)) {
+    Box(
+        modifier = Modifier.fillMaxSize().padding(contentPadding),
+        contentAlignment = Alignment.Center,
+    ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
             Icon(Icons.Default.Extension, contentDescription = null,
                 modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.outline)

@@ -8,6 +8,7 @@ import os
 import sys
 import json
 import re
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -23,6 +24,9 @@ PLUGINS_DIR = REPO_ROOT / "plugins"
 ISSUE_NUMBER = os.environ["ISSUE_NUMBER"]
 ISSUE_TITLE = os.environ["ISSUE_TITLE"]
 ISSUE_BODY = Path("/tmp/issue_body.txt").read_text()
+# Non-empty only when triggered by a repo-owner comment (issue_comment event)
+COMMENT_BODY = Path("/tmp/comment_body.txt").read_text() if Path("/tmp/comment_body.txt").exists() else ""
+EVENT_NAME = os.environ.get("EVENT_NAME", "issues")
 
 
 def read_file(path: Path) -> str:
@@ -90,10 +94,14 @@ def build_user_prompt() -> str:
 
     plugin_sources = "\n".join(relevant_plugins) if relevant_plugins else "(no existing plugins)"
 
+    comment_section = ""
+    if EVENT_NAME == "issue_comment" and COMMENT_BODY.strip():
+        comment_section = f"\n## New Comment (triggered this evolution)\n{COMMENT_BODY.strip()}\n"
+
     return f"""## Issue #{ISSUE_NUMBER}: {ISSUE_TITLE}
 
 {ISSUE_BODY}
-
+{comment_section}
 ## Existing Plugin Sources (for context)
 {plugin_sources}
 
@@ -178,7 +186,7 @@ def main():
         print("Agent needs clarification — commenting on issue")
         return
 
-    # Write plugin source
+    # Write plugin source (first attempt) and compile with retry loop
     kotlin_src = extract_block(response, "kotlin")
     if not kotlin_src:
         print("ERROR: Agent did not output Kotlin source")
@@ -186,7 +194,57 @@ def main():
 
     plugin_path = REPO_ROOT / action["plugin_src_path"]
     plugin_path.parent.mkdir(exist_ok=True)
-    plugin_path.write_text(kotlin_src)
+
+    MAX_COMPILE_RETRIES = 3
+    compile_messages = [{"role": "user", "content": build_user_prompt()}]
+    current_response = response
+
+    for attempt in range(MAX_COMPILE_RETRIES):
+        kt_src = extract_block(current_response, "kotlin") or kotlin_src
+        plugin_path.write_text(kt_src)
+        print(f"Wrote plugin source (attempt {attempt + 1}): {plugin_path}")
+
+        result = subprocess.run(
+            ["bash", "scripts/compile-plugin.sh",
+             action["plugin_src_path"], action["plugin_id"]],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+
+        if result.returncode == 0:
+            print(f"✅ Compiled successfully on attempt {attempt + 1}")
+            break
+
+        compile_error = (result.stdout + "\n" + result.stderr).strip()
+        print(f"❌ Compile attempt {attempt + 1} failed:\n{compile_error}")
+
+        if attempt == MAX_COMPILE_RETRIES - 1:
+            error_comment = (
+                f"❌ Plugin failed to compile after {MAX_COMPILE_RETRIES} attempts.\n\n"
+                f"Last compile error:\n```\n{compile_error[:2000]}\n```\n"
+                "Please refine the request or check the logs."
+            )
+            Path("/tmp/agent_comment.txt").write_text(error_comment)
+            sys.exit(1)
+
+        # Ask Claude to fix the compile error (multi-turn conversation)
+        compile_messages.append({"role": "assistant", "content": current_response})
+        compile_messages.append({"role": "user", "content": (
+            f"The Kotlin plugin failed to compile (attempt {attempt + 1}/{MAX_COMPILE_RETRIES}):\n"
+            f"```\n{compile_error[:3000]}\n```\n"
+            "Fix all compile errors. Output ONLY the corrected ```kotlin ... ``` block."
+        )})
+
+        fix_response = client.messages.create(
+            model=model,
+            max_tokens=4096,
+            system=build_system_prompt(),
+            messages=compile_messages,
+        )
+        current_response = fix_response.content[0].text
+        print(f"Got fix from agent (attempt {attempt + 2})")
+
     print(f"Wrote plugin source: {plugin_path}")
 
     # Patch AndroidManifest.xml with any new permissions
@@ -200,12 +258,6 @@ def main():
                 print(f"Added permission to AndroidManifest.xml: {perm}")
         ANDROID_MANIFEST_PATH.write_text(manifest_xml)
         print("AndroidManifest.xml updated — build.yml will trigger a core APK rebuild automatically")
-
-    # Write plugin info for compile step
-    Path("/tmp/plugin_info.env").write_text(
-        f'PLUGIN_ID="{action["plugin_id"]}"\n'
-        f'PLUGIN_SRC="{action["plugin_src_path"]}"\n'
-    )
 
     # Update MANIFEST.md
     manifest = read_file(MANIFEST_PATH)

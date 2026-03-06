@@ -254,6 +254,6 @@ class GoodMorningPlugin : Plugin {
             System.currentTimeMillis() < todayAt8().timeInMillis -> "Today at 08:00"
             else -> "Tomorrow at 08:00"
         }
-        return """{"label":"Good Morning Alarm","subtitle":"Next alarm: $subtitle"}"""
+        return """{"label":"Good Morning Alarm","subtitle":"Next alarm: $subtitle","route":"goodmorning_main"}"""
     }
 }

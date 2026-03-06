@@ -3,10 +3,15 @@ name: Evolve
 on:
   issues:
     types: [labeled]
+  issue_comment:
+    types: [created]
 
 jobs:
   evolve:
-    if: github.event.label.name == 'evolve'
+    # Trigger on 'evolve' label OR when the repo owner comments on any open issue
+    if: |
+      (github.event_name == 'issues' && github.event.label.name == 'evolve') ||
+      (github.event_name == 'issue_comment' && github.event.comment.user.login == github.repository_owner && github.event.issue.state == 'open')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -46,10 +51,13 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r scripts/requirements.txt
 
-      - name: Write issue body to file
+      - name: Write issue body and comment to files
         env:
           ISSUE_BODY: ${{ github.event.issue.body }}
-        run: echo "$ISSUE_BODY" > /tmp/issue_body.txt
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          echo "$ISSUE_BODY" > /tmp/issue_body.txt
+          echo "$COMMENT_BODY" > /tmp/comment_body.txt
 
       - name: Run evolution agent
         env:
@@ -57,14 +65,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
+          EVENT_NAME: ${{ github.event_name }}
         run: python3 scripts/evolve_agent.py
 
-      - name: Compile plugin (if new/modified)
-        run: |
-          if [ -f /tmp/plugin_info.env ]; then
-            source /tmp/plugin_info.env
-            bash scripts/compile-plugin.sh "$PLUGIN_SRC" "$PLUGIN_ID"
-          fi
+      # Compilation is handled inside evolve_agent.py with up to 3 retries.
+      # The agent writes the DEX to out/ directly; this step is a no-op kept for clarity.
 
       - name: Publish DEX to GitHub Releases (stable tag)
         if: hashFiles('out/*.dex') != ''
