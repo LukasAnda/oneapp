@@ -7,8 +7,11 @@ import androidx.compose.material3.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.oneapp.plugin.HomeCardContent
+import dev.oneapp.plugin.HomeCardData
 import dev.oneapp.plugin.Plugin
 import dev.oneapp.plugin.PluginHost
+import kotlinx.coroutines.flow.MutableStateFlow
 
 class HelloPlugin : Plugin {
     override val id = "dev.oneapp.hello"
@@ -16,11 +19,10 @@ class HelloPlugin : Plugin {
     override val permissions = emptyList<String>()
 
     override fun register(host: PluginHost) {
-        host.addHomeCard(
-            config = """{"label":"Hello"}""",
-            icon = Icons.Default.WavingHand,
-            onClick = {},
+        val cardFlow = MutableStateFlow<HomeCardContent>(
+            HomeCardData(label = "Hello", icon = Icons.Default.WavingHand)
         )
+        host.addHomeCard(content = cardFlow, route = "hello_main")
         host.addFullScreen("hello_main") {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
