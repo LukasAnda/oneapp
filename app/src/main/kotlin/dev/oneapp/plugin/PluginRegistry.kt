@@ -31,7 +31,7 @@ data class HomeCardData(
 ) : HomeCardContent
 
 /** Core-internal representation of a registered home card. Not part of the plugin API. */
-data class CardEntry(
+internal data class CardEntry(
     val pluginId: String,
     val content: StateFlow<HomeCardContent>,
     val route: String?,

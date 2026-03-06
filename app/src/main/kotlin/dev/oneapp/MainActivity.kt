@@ -19,8 +19,8 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.Text
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.*
@@ -122,6 +122,8 @@ class MainActivity : ComponentActivity() {
                             // plugins loading and shows the correct screen once available.
                             entry<PluginScreenKey> { key ->
                                 val screen = PluginRegistry.fullScreens.find { it.route == key.route }
+                                // Assumes full-screen route matches the card's route string.
+                                // Plugins without a matching card entry use the default theme.
                                 val pluginId = PluginRegistry.cardEntries.find { it.route == key.route }?.pluginId
                                 val seedColor = pluginId?.let { PluginRegistry.pluginThemes[it] }
 
@@ -129,6 +131,9 @@ class MainActivity : ComponentActivity() {
                                     if (seedColor != null) {
                                         val darkTheme = isSystemInDarkTheme()
                                         val base = if (darkTheme) darkColorScheme() else lightColorScheme()
+                                        // Simplified seed theming: only primary is overridden.
+                                        // onPrimary assumes a dark-enough seed — full tonal palette
+                                        // generation (material-color-utilities) is a future improvement.
                                         MaterialTheme(colorScheme = base.copy(primary = Color(seedColor), onPrimary = Color.White)) {
                                             screen.content()
                                         }
