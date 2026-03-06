@@ -38,8 +38,8 @@ class UpdateChecker(
         dexAssets.mapNotNull { asset ->
             runCatching {
                 val destFile = File(pluginsDir, asset.name)
-                val needsDownload = !destFile.exists() || destFile.length() != asset.size
                 val pluginId = pluginIdFromFilename(asset.name)
+                val needsDownload = !destFile.exists() || destFile.length() != asset.size
 
                 if (needsDownload) {
                     onDownloadStart(pluginId)
