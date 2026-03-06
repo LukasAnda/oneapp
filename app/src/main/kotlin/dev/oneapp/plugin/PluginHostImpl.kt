@@ -4,10 +4,10 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.vector.ImageVector
 import dev.oneapp.core.PermissionBroker
 import dev.oneapp.plugin.PluginTrust
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.StateFlow
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -44,16 +44,23 @@ class PluginHostImpl(
     private val trust: PluginTrust = PluginTrust.OWN,
 ) : PluginHost {
 
-    override fun addHomeCard(config: String, icon: ImageVector, onClick: () -> Unit) {
-        val json = org.json.JSONObject(config)
-        val label = json.getString("label")
-        val subtitle = json.optString("subtitle", "")
-        // Only set a route if explicitly specified in config — prevents navigation to non-existent routes.
-        // If no "route" key, onClick is used directly.
-        val route = json.optString("route", "").ifEmpty { null }
+    override fun addHomeCard(
+        content: StateFlow<HomeCardContent>,
+        route: String?,
+        onClick: () -> Unit,
+    ) {
         PluginRegistry.addCard(
-            HomeCard(pluginId = pluginId, label = label, subtitle = subtitle, icon = icon, route = route, onClick = onClick)
+            CardEntry(
+                pluginId = pluginId,
+                content = content,
+                route = route,
+                onClick = onClick,
+            )
         )
+    }
+
+    override fun registerTheme(seedColor: Long) {
+        PluginRegistry.setTheme(pluginId, seedColor)
     }
 
     override fun addFullScreen(route: String, content: @Composable () -> Unit) {
