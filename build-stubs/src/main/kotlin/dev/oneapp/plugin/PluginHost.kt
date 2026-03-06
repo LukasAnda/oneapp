@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
  * - EXTERNAL plugins: no dangerous permissions, no POST, no custom headers, own storage only
  * - OWN/TRUSTED plugins: full access
  *
- * Plugin API version: 1
+ * Plugin API version: 2
  */
 interface PluginHost {
 
