@@ -18,10 +18,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
+import dev.oneapp.plugin.HomeCardContent
+import dev.oneapp.plugin.HomeCardData
 import dev.oneapp.plugin.Plugin
 import dev.oneapp.plugin.PluginHost
 import android.Manifest
 import java.util.Calendar
+import kotlinx.coroutines.flow.MutableStateFlow
 
 // ── constants shared by plugin + receivers ──────────────────────────────────
 private const val PREF_KEY_ENABLED   = "alarm_enabled"
@@ -162,11 +165,18 @@ class GoodMorningPlugin : Plugin {
         }
 
         // ── Home card ────────────────────────────────────────────────────────
-        host.addHomeCard(
-            config = buildCardConfig(isEnabledInPrefs(ctx)),
-            icon   = Icons.Default.WbSunny,
-            onClick = {}
+        fun currentContent(enabled: Boolean): HomeCardContent = HomeCardData(
+            label = "Good Morning Alarm",
+            subtitle = if (!enabled) "Disabled"
+                       else if (System.currentTimeMillis() < todayAt8().timeInMillis) "Today at 08:00"
+                       else "Tomorrow at 08:00",
+            icon = Icons.Default.WbSunny,
         )
+
+        val cardFlow = MutableStateFlow<HomeCardContent>(currentContent(isEnabledInPrefs(ctx)))
+
+        host.registerTheme(0xFFFFA000L) // amber
+        host.addHomeCard(content = cardFlow, route = "goodmorning_main")
 
         // ── Full-screen UI ───────────────────────────────────────────────────
         host.addFullScreen("goodmorning_main") {
@@ -178,6 +188,7 @@ class GoodMorningPlugin : Plugin {
             fun toggle(newValue: Boolean) {
                 enabled = newValue
                 prefs.edit().putBoolean(PREF_KEY_ENABLED, newValue).apply()
+                cardFlow.value = currentContent(newValue)  // update home card subtitle reactively
                 if (newValue) {
                     // Also request POST_NOTIFICATIONS at runtime
                     host.requestPermission(Manifest.permission.POST_NOTIFICATIONS) {}
@@ -245,15 +256,5 @@ class GoodMorningPlugin : Plugin {
         if (isEnabledInPrefs(ctx)) {
             host.requestPermission(Manifest.permission.POST_NOTIFICATIONS) {}
         }
-    }
-
-    // Build JSON config for the home card
-    private fun buildCardConfig(enabled: Boolean): String {
-        val subtitle = when {
-            !enabled -> "Disabled"
-            System.currentTimeMillis() < todayAt8().timeInMillis -> "Today at 08:00"
-            else -> "Tomorrow at 08:00"
-        }
-        return """{"label":"Good Morning Alarm","subtitle":"Next alarm: $subtitle","route":"goodmorning_main"}"""
     }
 }
