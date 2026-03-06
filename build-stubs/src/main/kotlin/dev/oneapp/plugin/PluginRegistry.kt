@@ -1,51 +1,32 @@
 package dev.oneapp.plugin
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.graphics.vector.ImageVector
 
-data class HomeCard(
-    val pluginId: String,
-    val label: String,
-    val subtitle: String = "",
-    val icon: ImageVector,
-    val route: String?,
-    val onClick: () -> Unit,
-)
+/**
+ * Interface for dynamic home card content. Add new fields with default implementations
+ * to stay binary-compatible with existing compiled plugins.
+ */
+interface HomeCardContent {
+    val label: String
+    val subtitle: String get() = ""
+    val icon: ImageVector? get() = null
+}
+
+/**
+ * Convenience data class implementing HomeCardContent.
+ * Use this in plugins to get copy() for free.
+ */
+data class HomeCardData(
+    override val label: String,
+    override val subtitle: String = "",
+    override val icon: ImageVector? = null,
+) : HomeCardContent
 
 data class FullScreen(
     val route: String,
     val content: @Composable () -> Unit,
 )
 
-/**
- * Holds UI registrations from all loaded plugins.
- *
- * Plugins interact only via addCard/addFullScreen — they cannot enumerate,
- * modify, or clear other plugins' registrations.
- */
-object PluginRegistry {
-    private val _homeCards = mutableStateListOf<HomeCard>()
-    private val _fullScreens = mutableStateListOf<FullScreen>()
-
-    // Read-only views for HomeScreen
-    val homeCards: List<HomeCard> get() = _homeCards
-    val fullScreens: List<FullScreen> get() = _fullScreens
-
-    // Called by PluginHostImpl only — not exposed to Plugin implementations
-    internal fun addCard(card: HomeCard) {
-        _homeCards.removeAll { it.pluginId == card.pluginId && it.label == card.label }
-        _homeCards.add(card)
-    }
-
-    internal fun addFullScreen(screen: FullScreen) {
-        _fullScreens.removeAll { it.route == screen.route }
-        _fullScreens.add(screen)
-    }
-
-    // Called only by the core on app restart
-    internal fun clear() {
-        _homeCards.clear()
-        _fullScreens.clear()
-    }
-}
+/** Stub — plugins do not read from the registry directly. */
+object PluginRegistry
